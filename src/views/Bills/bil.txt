@@ -1,0 +1,347 @@
+import React, { useState, useEffect } from "react";
+import { saveAs } from 'file-saver'; // Import file-saver library
+import MainBillTable from "./AddBill/MainBillTable";
+import FormComponent from "./AddBill/Form";
+import ChargesTable from "./AddBill/ChargesTable";
+import ItemsTable from "./AddBill/ItemsTable";
+import BillButtons from "./AddBill/BillButtons";
+import ChargesSummaryTable from "./AddBill/ChargesSummaryTable";
+import CoverChargesTable from "./AddBill/CoverChargesTable";
+
+const AddBill = () => {
+  const [groups, setGroups] = useState([]);
+  const [selectedGroup, setSelectedGroup] = useState("");
+  const [sessions, setSessions] = useState([]);
+  const [selectedSession, setSelectedSession] = useState("");
+  const [charges, setCharges] = useState([]);
+  const [items, setItems] = useState([
+    { serialNo: 1, quantity: 0, pages: 0, catchNumber: "", envelope: 0 },
+  ]);
+  const [selectedType, setSelectedType] = useState("paper");
+  const [rateData, setRateData] = useState({});
+  const [bills, setBills] = useState([]);
+  const [totalCharges, setTotalCharges] = useState({});
+  const [selectedCharges, setSelectedCharges] = useState([]);
+  const [csvHeaders, setCsvHeaders] = useState([]);
+  const [selectedMainCharges, setSelectedMainCharges] = useState([]);
+  const [selectedCoverCharges, setSelectedCoverCharges] = useState([]);
+  const [totalBill, setTotalBill] = useState(0);
+
+
+  const handleMainChargeSelection = (chargeTypeName) => {
+    const index = selectedMainCharges.indexOf(chargeTypeName);
+    if (index === -1) {
+      setSelectedMainCharges([...selectedMainCharges, chargeTypeName]);
+    } else {
+      const updatedSelectedMainCharges = [...selectedMainCharges];
+      updatedSelectedMainCharges.splice(index, 1);
+      setSelectedMainCharges(updatedSelectedMainCharges);
+    }
+  };
+
+  const handleCoverChargeSelection = (chargeTypeName) => {
+    const index = selectedCoverCharges.indexOf(chargeTypeName);
+    if (index === -1) {
+      setSelectedCoverCharges([...selectedCoverCharges, chargeTypeName]);
+    } else {
+      const updatedSelectedCoverCharges = [...selectedCoverCharges];
+      updatedSelectedCoverCharges.splice(index, 1);
+      setSelectedCoverCharges(updatedSelectedCoverCharges);
+    }
+  };
+
+  useEffect(() => {
+    fetchGroups();
+  }, []);
+
+  const fetchGroups = async () => {
+    try {
+      const response = await fetch("https://localhost:7247/api/Group");
+      if (response.ok) {
+        const data = await response.json();
+        setGroups(data);
+      } else {
+        throw new Error("Failed to fetch groups");
+      }
+    } catch (error) {
+      console.error("Error fetching groups:", error);
+    }
+  };
+
+  const fetchSessions = async (groupId) => {
+    try {
+      const response = await fetch(
+        `https://localhost:7247/api/ChargeDetails/SessionsInGroup/${groupId}`
+      );
+      if (response.ok) {
+        const data = await response.json();
+        setSessions(data.groupSessions);
+      } else {
+        throw new Error("Failed to fetch sessions");
+      }
+    } catch (error) {
+      console.error("Error fetching sessions:", error);
+    }
+  };
+
+  const fetchCharges = async (groupId, session) => {
+    try {
+      const response = await fetch(
+        `https://localhost:7247/api/ChargeDetails/${groupId}/${session}`
+      );
+      if (response.ok) {
+        const data = await response.json();
+        setCharges(data);
+        const rates = {};
+        data.forEach((charge) => {
+          rates[charge.chargeTypeName] = {
+            ratePaper: charge.ratePaper,
+            rateBooklet: charge.rateBooklet,
+            rateQuantity: charge.rateQuantity,
+          };
+        });
+        setRateData(rates);
+        setCsvHeaders(data.map((charge) => charge.chargeTypeName));
+      } else {
+        throw new Error("Failed to fetch charges");
+      }
+    } catch (error) {
+      console.error("Error fetching charges:", error);
+    }
+  };
+
+  const handleGroupChange = (e) => {
+    const groupId = e.target.value;
+    setSelectedGroup(groupId);
+    fetchSessions(groupId);
+  };
+
+  const handleSessionChange = (e) => {
+    const session = e.target.value;
+    setSelectedSession(session);
+    fetchCharges(selectedGroup, session);
+  };
+
+  const handleTypeChange = (e) => {
+    setSelectedType(e.target.value);
+  };
+
+  const handleQuantityChange = (e, index) => {
+    const { value } = e.target;
+    const newItems = [...items];
+    newItems[index].quantity = value;
+    setItems(newItems);
+  };
+
+  const handlePagesChange = (e, index) => {
+    const { value } = e.target;
+    const newItems = [...items];
+    newItems[index].pages = value;
+    setItems(newItems);
+  };
+
+  const handleCatchNumberChange = (e, index) => {
+    const { value } = e.target;
+    const newItems = [...items];
+    newItems[index].catchNumber = value;
+    setItems(newItems);
+  };
+
+  const handleEnvelopeChange = (e, index) => { // Function to handle changes in the envelope quantity
+    const { value } = e.target;
+    const newItems = [...items];
+    newItems[index].envelope = value;
+    setItems(newItems);
+  };
+
+  const addRow = () => {
+    const newSerialNo = items.length + 1;
+    setItems([
+      ...items,
+      { serialNo: newSerialNo, quantity: 0, pages: 0, catchNumber: "", envelope: 0 }, // Include envelope property
+    ]);
+  };
+
+  const removeRow = (index) => {
+    const newItems = [...items];
+    newItems.splice(index, 1);
+    setItems(newItems);
+  };
+
+const calculateBill = () => {
+  let billData = [];
+  let totalCharges = {};
+  let totalBill = 0;
+  
+  items.forEach(({ serialNo, quantity, pages, catchNumber, envelope }) => {
+    let bill = {
+      serialNo,
+      catchNumber,
+      quantity,
+      pages,
+      paperCharges: 0,
+      composingCharges: 0,
+      // Add properties for other charge types as needed
+    };
+    
+    charges.forEach((charge) => {
+      if (selectedCharges.includes(charge.chargeTypeName)) {
+        const rateObj = rateData[charge.chargeTypeName];
+        if (rateObj && rateObj.ratePaper !== undefined) {
+          let chargeAmount = 0;
+          // Apply different calculation formulas based on charge type
+          switch (charge.chargeTypeName) {
+            case "Composing Charges":
+              chargeAmount = rateObj.ratePaper * pages * bill.quantityReal;
+              break;
+            case "Printing Charges":
+              chargeAmount = rateObj.ratePaper * pages * bill.quantity;
+              break;
+            // Add cases for other charge types with their respective formulas
+            default:
+              // Handle other charge types if needed
+          }
+          
+          bill[charge.chargeTypeName] = chargeAmount;
+          totalCharges[charge.chargeTypeName] = (totalCharges[charge.chargeTypeName] || 0) + chargeAmount;
+          totalBill += chargeAmount;
+        } else {
+          console.error(`Rate data or ratePaper not found for charge type: ${charge.chargeTypeName}`);
+        }
+      }
+    });
+    
+    billData.push(bill);
+  });
+  
+  setBills(billData);
+  setTotalCharges(totalCharges);
+  setTotalBill(totalBill);
+};
+
+  const printTable = () => {
+    window.print();
+  };
+
+  const handleChargeSelection = (chargeTypeName) => {
+    const index = selectedCharges.indexOf(chargeTypeName);
+    if (index === -1) {
+      setSelectedCharges([...selectedCharges, chargeTypeName]);
+    } else {
+      const updatedSelectedCharges = [...selectedCharges];
+      updatedSelectedCharges.splice(index, 1);
+      setSelectedCharges(updatedSelectedCharges);
+    }
+  };
+
+  const generateCSVData = () => {
+    const selectedChargeHeaders = csvHeaders.filter((header) =>
+      selectedCharges.includes(header)
+    );
+    const data = bills.map((bill) => {
+      const rowData = [
+        bill.serialNo,
+        bill.catchNumber,
+        bill.quantityReal,
+        bill.pages,
+      ];
+      selectedChargeHeaders.forEach((header) => {
+        rowData.push(bill[header] || "");
+      });
+      return rowData;
+    });
+
+    const columnTotals = selectedChargeHeaders.reduce((totals, header) => {
+      totals[header] = bills.reduce(
+        (acc, bill) => acc + (bill[header] || 0),
+        0
+      );
+      return totals;
+    }, {});
+
+    const totalBill = selectedChargeHeaders.reduce(
+      (acc, header) => acc + (columnTotals[header] || 0),
+      0
+    );
+
+    const totalBillRow = [
+      "Total",
+      "",
+      "",
+      "",
+      ...selectedChargeHeaders.map((header) => columnTotals[header] || 0),
+      totalBill,
+    ];
+    data.push(totalBillRow);
+
+    return [
+      [
+        "S.N.",
+        "Catch Number",
+        "Quantity",
+        "No. of Pages",
+        ...selectedChargeHeaders,
+        "Total",
+      ],
+      ...data,
+    ];
+  };
+
+  const exportToCSV = () => {
+    const csvData = generateCSVData(); // Get CSV data
+    const csvContent = csvData.map(row => row.join(",")).join("\n"); // Convert data to CSV format
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' }); // Create blob with CSV data
+    saveAs(blob, 'bill_table.csv'); // Trigger file download
+  };
+
+  return (
+    <div className="border border-3 p-4 my-3">
+      <h2 className="text-center">Add Bill</h2>
+      <hr />
+      <FormComponent
+        groups={groups}
+        selectedGroup={selectedGroup}
+        handleGroupChange={handleGroupChange}
+        sessions={sessions}
+        selectedSession={selectedSession}
+        handleSessionChange={handleSessionChange}
+        selectedType={selectedType}
+        handleTypeChange={handleTypeChange}
+      />
+      <ChargesTable
+        charges={charges}
+        selectedType={selectedType}
+        handleChargeSelection={handleChargeSelection}
+        selectedCharges={selectedCharges}
+      />
+      <ItemsTable
+        items={items}
+        handleQuantityChange={handleQuantityChange}
+        handlePagesChange={handlePagesChange}
+        handleCatchNumberChange={handleCatchNumberChange}
+        handleEnvelopeChange={handleEnvelopeChange} // Pass handleEnvelopeChange function as prop
+        removeRow={removeRow}
+        addRow={addRow}
+      />
+      <BillButtons
+        calculateBill={calculateBill}
+        printTable={printTable}
+        generateCSVData={generateCSVData}
+        exportToCSV={exportToCSV} // Pass exportToCSV function as prop
+      />
+      <div className="mt-3 table-responsive">
+        <MainBillTable
+          charges={charges}
+          bills={bills}
+          selectedCharges={selectedCharges}
+          totalCharges={totalCharges}
+        />
+        {selectedCharges.length > 0 && (
+          <CoverChargesTable selectedCharges={selectedCharges} charges={charges} />
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default AddBill;

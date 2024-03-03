@@ -1,0 +1,763 @@
+import React, { useState, useEffect } from "react";
+import { Form, Row, Col, Button, Table } from "react-bootstrap";
+import { CSVLink } from 'react-csv';
+
+const AddBill = () => {
+  const [groups, setGroups] = useState([]);
+  const [selectedGroup, setSelectedGroup] = useState("");
+  const [sessions, setSessions] = useState([]);
+  const [selectedSession, setSelectedSession] = useState("");
+  const [charges, setCharges] = useState([]);
+  const [items, setItems] = useState([{ serialNo: 1, quantity: 0, pages: 0, catchNumber: "" }]);
+  const [selectedType, setSelectedType] = useState("paper"); // Default to paper
+  const [rateData, setRateData] = useState({});
+  const [bills, setBills] = useState([]);
+  const [totalCharges, setTotalCharges] = useState({});
+  const [selectedCharges, setSelectedCharges] = useState([]);
+  const [csvHeaders, setCsvHeaders] = useState([]);
+
+  useEffect(() => {
+    fetchGroups();
+  }, []);
+
+  const fetchGroups = async () => {
+    try {
+      const response = await fetch("https://localhost:7247/api/Group");
+      if (response.ok) {
+        const data = await response.json();
+        setGroups(data);
+      } else {
+        throw new Error("Failed to fetch groups");
+      }
+    } catch (error) {
+      console.error("Error fetching groups:", error);
+    }
+  };
+
+  const fetchSessions = async (groupId) => {
+    try {
+      const response = await fetch(
+        `https://localhost:7247/api/ChargeDetails/SessionsInGroup/${groupId}`
+      );
+      if (response.ok) {
+        const data = await response.json();
+        setSessions(data.groupSessions);
+      } else {
+        throw new Error("Failed to fetch sessions");
+      }
+    } catch (error) {
+      console.error("Error fetching sessions:", error);
+    }
+  };
+
+  const fetchCharges = async (groupId, session) => {
+    try {
+      const response = await fetch(
+        `https://localhost:7247/api/ChargeDetails/${groupId}/${session}`
+      );
+      if (response.ok) {
+        const data = await response.json();
+        setCharges(data);
+        const rates = {};
+        data.forEach((charge) => {
+          rates[charge.chargeTypeName] = {
+            ratePaper: charge.ratePaper,
+            rateBooklet: charge.rateBooklet,
+          };
+        });
+        setRateData(rates);
+        setCsvHeaders(data.map(charge => charge.chargeTypeName));
+      } else {
+        throw new Error("Failed to fetch charges");
+      }
+    } catch (error) {
+      console.error("Error fetching charges:", error);
+    }
+  };
+
+  const handleGroupChange = (e) => {
+    const groupId = e.target.value;
+    setSelectedGroup(groupId);
+    fetchSessions(groupId);
+  };
+
+  const handleSessionChange = (e) => {
+    const session = e.target.value;
+    setSelectedSession(session);
+    fetchCharges(selectedGroup, session);
+  };
+
+  const handleTypeChange = (e) => {
+    setSelectedType(e.target.value);
+  };
+
+  const handleQuantityChange = (e, index) => {
+    const { value } = e.target;
+    const newItems = [...items];
+    newItems[index].quantity = value;
+    setItems(newItems);
+  };
+
+  const handlePagesChange = (e, index) => {
+    const { value } = e.target;
+    const newItems = [...items];
+    newItems[index].pages = value;
+    setItems(newItems);
+  };
+
+  const handleCatchNumberChange = (e, index) => {
+    const { value } = e.target;
+    const newItems = [...items];
+    newItems[index].catchNumber = value;
+    setItems(newItems);
+  };
+
+  const addRow = () => {
+    const newSerialNo = items.length + 1;
+    setItems([
+      ...items,
+      { serialNo: newSerialNo, quantity: 0, pages: 0, catchNumber: "" },
+    ]);
+  };
+
+  const removeRow = (index) => {
+    const newItems = [...items];
+    newItems.splice(index, 1);
+    setItems(newItems);
+  };
+
+  const calculateBill = () => {
+    let billData = [];
+    let totalCharges = {};
+    items.forEach(({ serialNo, quantity, pages, catchNumber }) => {
+      let bill = {};
+      bill.serialNo = serialNo;
+      bill.catchNumber = catchNumber;
+      bill.quantityReal = quantity; // Store the real quantity
+      const roundedQuantity = Math.ceil(quantity / 100) * 100; // Round up to the nearest multiple of 100
+      bill.quantity = roundedQuantity;
+      bill.pages = pages;
+      bill.paperCharges = 0;
+      bill.composingCharges = 0;
+      charges.forEach((charge) => {
+        if (selectedCharges.includes(charge.chargeTypeName)) {
+          const rateObj = rateData[charge.chargeTypeName];
+          if (rateObj && rateObj.ratePaper !== undefined) {
+            let rate = selectedType === "paper" ? rateObj.ratePaper : rateObj.rateBooklet;
+            let chargeAmount = 0;
+            if (charge.chargeTypeName === "Composing Charges") {
+              // Round the pages specifically for Composing Charges calculation
+              const roundedPages = Math.ceil(pages / 2) * 2;
+              chargeAmount = (rate * roundedQuantity * roundedPages) / 100; // Divide by 100 to adjust for rates per 100 units
+            } else {
+              chargeAmount = (rate * roundedQuantity * pages) / 100; // Divide by 100 to adjust for rates per 100 units
+            }
+            bill[charge.chargeTypeName] = chargeAmount;
+            if (!["Serial No", "Catch Number", "Quantity", "No. of Pages"].includes(charge.chargeTypeName)) {
+              totalCharges[charge.chargeTypeName] = (totalCharges[charge.chargeTypeName] || 0) + chargeAmount;
+            }
+          } else {
+            console.error(`Rate data or ratePaper not found for charge type: ${charge.chargeTypeName}`);
+          }
+        }
+      });
+      billData.push(bill);
+    });
+    setBills(billData);
+    setTotalCharges(totalCharges);
+  };
+
+  const printTable = () => {
+    window.print();
+  };
+
+  const handleChargeSelection = (chargeTypeName) => {
+    const index = selectedCharges.indexOf(chargeTypeName);
+    if (index === -1) {
+      setSelectedCharges([...selectedCharges, chargeTypeName]);
+    } else {
+      const updatedSelectedCharges = [...selectedCharges];
+      updatedSelectedCharges.splice(index, 1);
+      setSelectedCharges(updatedSelectedCharges);
+    }
+  };
+
+  // Function to generate CSV data from bills state
+  const generateCSVData = () => {
+    const data = bills.map(bill => {
+      const rowData = [];
+      csvHeaders.forEach(header => {
+        rowData.push(bill[header] || ''); // Push bill data corresponding to each header
+      });
+      return rowData;
+    });
+    return [csvHeaders, ...data];
+  };
+
+  return (
+    <div className="border border-3 p-4 my-3">
+      <h2 className="text-center">Add Bill</h2>
+      <hr />
+      <Form>
+        <Row className="mb-3">
+          <Form.Group as={Col} controlId="selectGroup">
+            <Form.Label>Select Group</Form.Label>
+            <Form.Select onChange={handleGroupChange} value={selectedGroup}>
+              <option value="">Select Group</option>
+              {groups.map((group) => (
+                <option key={group.groupId} value={group.groupId}>
+                  {group.name}
+                </option>
+              ))}
+            </Form.Select>
+          </Form.Group>
+          <Form.Group as={Col} controlId="selectSession">
+            <Form.Label>Select Session</Form.Label>
+            <Form.Select onChange={handleSessionChange} value={selectedSession}>
+              <option value="">Select Session</option>
+              {sessions.map((session) => (
+                <option key={session} value={session}>
+                  {session}
+                </option>
+              ))}
+            </Form.Select>
+          </Form.Group>
+          <Form.Group as={Col} controlId="selectType">
+            <Form.Label>Select Type</Form.Label>
+            <Form.Select onChange={handleTypeChange} value={selectedType}>
+              <option value="paper">Paper</option>
+              <option value="booklet">Booklet</option>
+            </Form.Select>
+          </Form.Group>
+        </Row>
+      </Form>
+      <div className="mt-3 table-responsive">
+        <h3>Charges for the selected session:</h3>
+        <Table striped bordered hover>
+          <thead>
+            <tr>
+              <th>Charge Type</th>
+              <th>Rate (Rs.)</th>
+              <th>Show Charge</th>
+            </tr>
+          </thead>
+          <tbody>
+            {charges.map((charge) => (
+              <tr key={charge.chargeDetailId}>
+                <td>{charge.chargeTypeName}</td>
+                <td>
+                  {selectedType === "paper"
+                    ? charge.ratePaper
+                    : charge.rateBooklet}
+                </td>
+                <td>
+                  <Form.Check
+                    type="checkbox"
+                    id={`check-${charge.chargeDetailId}`}
+                    label=""
+                    onChange={() => handleChargeSelection(charge.chargeTypeName)}
+                    checked={selectedCharges.includes(charge.chargeTypeName)}
+                  />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </Table>
+      </div>
+      <div className="mt-3 table-responsive">
+        <Table striped bordered hover>
+          <thead>
+            <tr>
+              <th>Serial No</th>
+              <th>Catch Number</th>
+              <th>Quantity</th>
+              <th>No. of Pages</th>
+              <th>Remove Row</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((item, index) => (
+              <tr key={index}>
+                <td>{item.serialNo}</td>
+                <td>
+                  <Form.Control
+                    type="text"
+                    onChange={(e) => handleCatchNumberChange(e, index)}
+                    value={item.catchNumber}
+                  />
+                </td>
+                <td>
+                  <Form.Control
+                    type="number"
+                    onChange={(e) => handleQuantityChange(e, index)}
+                    value={item.quantity}
+                  />
+                </td>
+                <td>
+                  <Form.Control
+                    type="number"
+                    onChange={(e) => handlePagesChange(e, index)}
+                    value={item.pages}
+                  />
+                </td>
+                <td>
+                  <Button onClick={() => removeRow(index)}>Remove</Button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </Table>
+        <Button onClick={addRow}>Add Row</Button>
+      </div>
+      <div className="mt-3">
+        <Button onClick={calculateBill}>Generate Bill</Button>{" "}
+        <Button onClick={printTable}>Print</Button>{" "}
+        <CSVLink data={generateCSVData()} filename={"bill_data.csv"} className="btn btn-primary">Download CSV</CSVLink>
+      </div>
+      <div className="mt-3 table-responsive">
+        <Table striped bordered hover>
+          <thead>
+            <tr className="text-center">
+              <th>S.N.</th>
+              <th>Catch Number</th>
+              <th>Quantity</th>
+              <th>No. of Pages</th>
+              {charges.map((charge) => (
+                selectedCharges.includes(charge.chargeTypeName) && (
+                  <th key={charge.chargeDetailId}>
+                    {charge.chargeTypeName} (Rs.)
+                  </th>
+                )
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {bills.map((bill, index) => (
+              <tr key={index}>
+                <td>{bill.serialNo}</td>
+                <td>{bill.catchNumber}</td>
+                <td>{bill.quantityReal}</td>
+                <td>{bill.pages}</td>
+                {charges.map((charge) => (
+                  selectedCharges.includes(charge.chargeTypeName) && (
+                    <td key={charge.chargeDetailId}>
+                      {bill[charge.chargeTypeName]}
+                    </td>
+                  )
+                ))}
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colSpan="4">Total</td>
+              {charges.map((charge) => (
+                selectedCharges.includes(charge.chargeTypeName) && (
+                  <td key={charge.chargeDetailId}>
+                    {totalCharges[charge.chargeTypeName] || 0}
+                  </td>
+                )
+              ))}
+            </tr>
+            <tr>
+              <td colSpan="4">Total Bill</td>
+              <td colSpan={charges.filter(charge => selectedCharges.includes(charge.chargeTypeName)).length}>
+                {/* Calculate the sum of total charges excluding excluded columns */}
+                {Object.values(totalCharges).reduce((acc, curr, index) => {
+                  if (
+                    selectedCharges.includes(charges[index].chargeTypeName)
+                  ) {
+                    return acc + curr;
+                  }
+                  return acc;
+                }, 0)}
+              </td>
+            </tr>
+          </tfoot>
+        </Table>
+      </div>
+    </div>
+  );
+};
+
+export default AddBill;
+
+
+
+//new component of AddBill
+
+import React, { useState, useEffect } from "react";
+import MainBillTable from "./AddBill/MainBillTable";
+import FormComponent from "./AddBill/Form";
+import ChargesTable from "./AddBill/ChargesTable";
+import ItemsTable from "./AddBill/ItemsTable";
+import BillButtons from "./AddBill/BillButtons";
+import ChargesSummaryTable from "./AddBill/ChargesSummaryTable";
+import CoverChargesTable from "./AddBill/CoverChargesTable";
+
+const AddBill = () => {
+  const [groups, setGroups] = useState([]);
+  const [selectedGroup, setSelectedGroup] = useState("");
+  const [sessions, setSessions] = useState([]);
+  const [selectedSession, setSelectedSession] = useState("");
+  const [charges, setCharges] = useState([]);
+  const [items, setItems] = useState([
+    { serialNo: 1, quantity: 0, pages: 0, catchNumber: "" },
+  ]);
+  const [selectedType, setSelectedType] = useState("paper"); // Default to paper
+  const [rateData, setRateData] = useState({});
+  const [bills, setBills] = useState([]);
+  const [totalCharges, setTotalCharges] = useState({});
+  const [selectedCharges, setSelectedCharges] = useState([]);
+  const [csvHeaders, setCsvHeaders] = useState([]);
+  const [selectedMainCharges, setSelectedMainCharges] = useState([]);
+  const [selectedCoverCharges, setSelectedCoverCharges] = useState([]);
+  const [totalBill, setTotalBill] = useState(0); // Declare totalBill state variable
+
+
+  const handleMainChargeSelection = (chargeTypeName) => {
+    const index = selectedMainCharges.indexOf(chargeTypeName);
+    if (index === -1) {
+      setSelectedMainCharges([...selectedMainCharges, chargeTypeName]);
+    } else {
+      const updatedSelectedMainCharges = [...selectedMainCharges];
+      updatedSelectedMainCharges.splice(index, 1);
+      setSelectedMainCharges(updatedSelectedMainCharges);
+    }
+  };
+
+  const handleCoverChargeSelection = (chargeTypeName) => {
+    const index = selectedCoverCharges.indexOf(chargeTypeName);
+    if (index === -1) {
+      setSelectedCoverCharges([...selectedCoverCharges, chargeTypeName]);
+    } else {
+      const updatedSelectedCoverCharges = [...selectedCoverCharges];
+      updatedSelectedCoverCharges.splice(index, 1);
+      setSelectedCoverCharges(updatedSelectedCoverCharges);
+    }
+  };
+
+  useEffect(() => {
+    fetchGroups();
+  }, []);
+
+  const fetchGroups = async () => {
+    try {
+      const response = await fetch("https://localhost:7247/api/Group");
+      if (response.ok) {
+        const data = await response.json();
+        setGroups(data);
+      } else {
+        throw new Error("Failed to fetch groups");
+      }
+    } catch (error) {
+      console.error("Error fetching groups:", error);
+    }
+  };
+
+  const fetchSessions = async (groupId) => {
+    try {
+      const response = await fetch(
+        `https://localhost:7247/api/ChargeDetails/SessionsInGroup/${groupId}`
+      );
+      if (response.ok) {
+        const data = await response.json();
+        setSessions(data.groupSessions);
+      } else {
+        throw new Error("Failed to fetch sessions");
+      }
+    } catch (error) {
+      console.error("Error fetching sessions:", error);
+    }
+  };
+
+  const fetchCharges = async (groupId, session) => {
+    try {
+      const response = await fetch(
+        `https://localhost:7247/api/ChargeDetails/${groupId}/${session}`
+      );
+      if (response.ok) {
+        const data = await response.json();
+        setCharges(data);
+        const rates = {};
+        data.forEach((charge) => {
+          rates[charge.chargeTypeName] = {
+            ratePaper: charge.ratePaper,
+            rateBooklet: charge.rateBooklet,
+          };
+        });
+        setRateData(rates);
+        setCsvHeaders(data.map((charge) => charge.chargeTypeName));
+      } else {
+        throw new Error("Failed to fetch charges");
+      }
+    } catch (error) {
+      console.error("Error fetching charges:", error);
+    }
+  };
+
+  const handleGroupChange = (e) => {
+    const groupId = e.target.value;
+    setSelectedGroup(groupId);
+    fetchSessions(groupId);
+  };
+
+  const handleSessionChange = (e) => {
+    const session = e.target.value;
+    setSelectedSession(session);
+    fetchCharges(selectedGroup, session);
+  };
+
+  const handleTypeChange = (e) => {
+    setSelectedType(e.target.value);
+  };
+
+  const handleQuantityChange = (e, index) => {
+    const { value } = e.target;
+    const newItems = [...items];
+    newItems[index].quantity = value;
+    setItems(newItems);
+  };
+
+  const handlePagesChange = (e, index) => {
+    const { value } = e.target;
+    const newItems = [...items];
+    newItems[index].pages = value;
+    setItems(newItems);
+  };
+
+  const handleCatchNumberChange = (e, index) => {
+    const { value } = e.target;
+    const newItems = [...items];
+    newItems[index].catchNumber = value;
+    setItems(newItems);
+  };
+
+  const addRow = () => {
+    const newSerialNo = items.length + 1;
+    setItems([
+      ...items,
+      { serialNo: newSerialNo, quantity: 0, pages: 0, catchNumber: "" },
+    ]);
+  };
+
+  const removeRow = (index) => {
+    const newItems = [...items];
+    newItems.splice(index, 1);
+    setItems(newItems);
+  };
+
+  const calculateBill = () => {
+    let billData = [];
+    let totalCharges = {};
+    let totalBill = 0; // Initialize totalBill variable
+    items.forEach(({ serialNo, quantity, pages, catchNumber }) => {
+      let bill = {};
+      bill.serialNo = serialNo;
+      bill.catchNumber = catchNumber;
+      bill.quantityReal = quantity; // Store the real quantity
+      const roundedQuantity = Math.ceil(quantity / 100) * 100; // Round up to the nearest multiple of 100
+      bill.quantity = roundedQuantity;
+      bill.pages = pages;
+      bill.paperCharges = 0;
+      bill.composingCharges = 0;
+      charges.forEach((charge) => {
+        if (selectedCharges.includes(charge.chargeTypeName)) {
+          const rateObj = rateData[charge.chargeTypeName];
+          if (rateObj && rateObj.ratePaper !== undefined) {
+            let rate =
+              selectedType === "paper"
+                ? rateObj.ratePaper
+                : rateObj.rateBooklet;
+            let chargeAmount = 0;
+            if (charge.chargeTypeName === "Composing Charges") {
+              // Calculate composing charges
+              chargeAmount = rate * pages;
+            } else {
+              chargeAmount = (rate * roundedQuantity * pages) / 100; // Divide by 100 to adjust for rates per 100 units
+            }
+            bill[charge.chargeTypeName] = chargeAmount;
+            totalCharges[charge.chargeTypeName] =
+              (totalCharges[charge.chargeTypeName] || 0) + chargeAmount;
+            totalBill += chargeAmount; // Update totalBill with the chargeAmount for each charge
+          } else {
+            console.error(
+              `Rate data or ratePaper not found for charge type: ${charge.chargeTypeName}`
+            );
+          }
+        }
+      });
+      billData.push(bill);
+    });
+    setBills(billData);
+    setTotalCharges(totalCharges);
+    setTotalBill(totalBill); // Set the totalBill state with the calculated value
+  };
+  
+  
+
+  const printTable = () => {
+    window.print();
+  };
+
+  const handleChargeSelection = (chargeTypeName) => {
+    const index = selectedCharges.indexOf(chargeTypeName);
+    if (index === -1) {
+      setSelectedCharges([...selectedCharges, chargeTypeName]);
+    } else {
+      const updatedSelectedCharges = [...selectedCharges];
+      updatedSelectedCharges.splice(index, 1);
+      setSelectedCharges(updatedSelectedCharges);
+    }
+  };
+
+  // Function to generate CSV data from bills state
+  const generateCSVData = () => {
+    const selectedChargeHeaders = csvHeaders.filter((header) =>
+      selectedCharges.includes(header)
+    );
+    const data = bills.map((bill) => {
+      const rowData = [
+        bill.serialNo,
+        bill.catchNumber,
+        bill.quantityReal,
+        bill.pages,
+      ];
+      selectedChargeHeaders.forEach((header) => {
+        rowData.push(bill[header] || ""); // Push bill data corresponding to each selected header
+      });
+      return rowData;
+    });
+
+    // Calculate totals for each column
+    const columnTotals = selectedChargeHeaders.reduce((totals, header) => {
+      totals[header] = bills.reduce(
+        (acc, bill) => acc + (bill[header] || 0),
+        0
+      );
+      return totals;
+    }, {});
+
+    // Calculate total bill
+    const totalBill = selectedChargeHeaders.reduce(
+      (acc, header) => acc + (columnTotals[header] || 0),
+      0
+    );
+
+    // Add total bill row
+    const totalBillRow = [
+      "Total",
+      "",
+      "",
+      "",
+      ...selectedChargeHeaders.map((header) => columnTotals[header] || 0),
+      totalBill,
+    ];
+    data.push(totalBillRow);
+
+    return [
+      [
+        "S.N.",
+        "Catch Number",
+        "Quantity",
+        "No. of Pages",
+        ...selectedChargeHeaders,
+        "Total",
+      ],
+      ...data,
+    ];
+  };
+
+  return (
+    <div className="border border-3 p-4 my-3">
+      <h2 className="text-center">Add Bill</h2>
+      <hr />
+      <FormComponent
+        groups={groups}
+        selectedGroup={selectedGroup}
+        handleGroupChange={handleGroupChange}
+        sessions={sessions}
+        selectedSession={selectedSession}
+        handleSessionChange={handleSessionChange}
+        selectedType={selectedType}
+        handleTypeChange={handleTypeChange}
+      />
+      <ChargesTable
+        charges={charges}
+        selectedType={selectedType}
+        handleChargeSelection={handleChargeSelection}
+        selectedCharges={selectedCharges}
+      />
+      <ItemsTable
+        items={items}
+        handleQuantityChange={handleQuantityChange}
+        handlePagesChange={handlePagesChange}
+        handleCatchNumberChange={handleCatchNumberChange}
+        removeRow={removeRow}
+        addRow={addRow}
+      />
+      <BillButtons
+        calculateBill={calculateBill}
+        printTable={printTable}
+        generateCSVData={generateCSVData}
+      />
+      <div className="mt-3 table-responsive">
+        <MainBillTable
+          charges={charges}
+          bills={bills}
+          selectedCharges={selectedCharges}
+          totalCharges={totalCharges}
+        />
+        {selectedCharges.length > 0 && (
+          <CoverChargesTable selectedCharges={selectedCharges} charges={charges} />
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default AddBill;
+
+
+
+// Charge table 
+
+import React from "react";
+import PropTypes from "prop-types";
+
+const CoverChargesTable = ({ selectedCharges, charges }) => {
+  return (
+    <div className="mt-3 table-responsive">
+      <table className="table table-bordered">
+        <thead>
+          <tr>
+            <th>Charge Name</th>
+            <th>Rate (Rs.)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {selectedCharges.map((chargeName) => {
+            const charge = charges.find(
+              (c) => c.chargeTypeName === chargeName
+            );
+            return (
+              <tr key={charge.chargeDetailId}>
+                <td>{charge.chargeTypeName}</td>
+                <td>
+                  {charge.ratePaper || charge.rateBooklet} {/* Display rate */}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+};
+
+CoverChargesTable.propTypes = {
+  selectedCharges: PropTypes.array.isRequired,
+  charges: PropTypes.array.isRequired,
+};
+
+export default CoverChargesTable;
