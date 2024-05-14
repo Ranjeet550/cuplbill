@@ -1,35 +1,30 @@
 import { useState, useEffect } from "react";
 
-const apiUrl = process.env.REACT_APP_API_CUSTOMERS;
-const invoiceUrl = process.env.REACT_APP_API_INVOICES;
+const apiUrl = process.env.REACT_APP_API_USERS;
+const groupApiUrl = process.env.REACT_APP_API_GROUP;
+const generatedBillsApiUrl = 'https://localhost:7247/api/GeneratedBills';
 
 const DashboardCardData = () => {
-  const [customerCount, setCustomerCount] = useState(0);
-  const [paidBillCount, setPaidBillCount] = useState(0);
-  const [unpaidBillCount, setUnpaidBillCount] = useState(0);
-  const [invoiceCount, setInvoiceCount] = useState(0);
+  const [userCount, setUserCount] = useState(0);
+  const [groupCount, setGroupCount] = useState(0);
+  const [generatedBillsCount, setGeneratedBillsCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [customerDataResponse, invoiceDataResponse] = await Promise.all([
+        const [usersResponse, groupsResponse, generatedBillsResponse] = await Promise.all([
           fetch(apiUrl),
-          fetch(invoiceUrl)
+          fetch(groupApiUrl),
+          fetch(generatedBillsApiUrl)
         ]);
-        const customerData = await customerDataResponse.json();
-        const invoiceData = await invoiceDataResponse.json();
+        const users = await usersResponse.json();
+        const groups = await groupsResponse.json();
+        const generatedBills = await generatedBillsResponse.json();
 
-        setCustomerCount(customerData.length);
-        setInvoiceCount(invoiceData.length);
-
-        // Assuming invoice data has a property indicating whether the bill is paid or not
-        const paidBills = invoiceData.filter(invoice => invoice.isPaid);
-        setPaidBillCount(paidBills.length);
-
-        // Calculating the count of unpaid bills
-        const unpaidBills = invoiceData.filter(invoice => !invoice.isPaid);
-        setUnpaidBillCount(unpaidBills.length);
+        setUserCount(users.length);
+        setGroupCount(groups.length);
+        setGeneratedBillsCount(generatedBills.length);
 
         setLoading(false);
       } catch (error) {
@@ -43,34 +38,26 @@ const DashboardCardData = () => {
 
   const cardData = [
     {
-      color: "green",
+      color: "blue",
       iconClass: "fa-user",
       link: "/users",
-      value: customerCount,
+      value: userCount,
       title: "Total Users",
     },
     {
-      color: "blue",
-      iconClass: "fa-money-bill-wave", // Assuming this icon represents paid bills
-      link: "/paidbill",
-      value: paidBillCount,
-      title: "Paid Bills",
+      color: "lightgreen",
+      iconClass: "fa-university",
+      link: "/groups",
+      value: groupCount,
+      title: "Groups",
     },
     {
       color: "yellow",
-      iconClass: "fa-exclamation-circle", // Assuming this icon represents unpaid bills
-      link: "/unpaidbill",
-      value: unpaidBillCount,
-      title: "Unpaid Bills",
+      iconClass: "fa-calculator",
+      link: "/Bills",
+      value: generatedBillsCount,
+      title: "Generated Bills",
     },
-    {
-      color: "purple",
-      iconClass: "fa-indian-rupee", // Changed to represent Indian Rupees
-      link: "/invoices",
-      value: invoiceCount,
-      title: "Total Invoices",
-    },
-    // You can add more card data as needed for your application
   ];
 
   return { cardData, loading };

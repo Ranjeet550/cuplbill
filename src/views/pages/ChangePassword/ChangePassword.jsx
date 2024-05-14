@@ -11,7 +11,7 @@ const ChangePasswordApi = process.env.REACT_APP_API_CHANGE_PASSWORD;
 
 const ChangePassword = () => {
   const navigate = useNavigate();
-  const { logout, keygenUser } = useUser();
+  const { logout, billUser } = useUser();
 
   const [passwords, setPasswords] = useState({
     oldPassword: '',
@@ -91,7 +91,7 @@ const ChangePassword = () => {
     setLoading(true);
 
     try {
-      const userId = keygenUser.user_ID; // Replace with the actual user ID
+      const userId = billUser.user_ID; // Replace with the actual user ID
       const response = await axios.put(`${ChangePasswordApi}/${userId}`, {
         oldPassword: passwords.oldPassword,
         newPassword: passwords.newPassword,

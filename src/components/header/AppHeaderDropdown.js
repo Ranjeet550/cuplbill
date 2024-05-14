@@ -13,14 +13,14 @@ import {
 import { Link } from "react-router-dom";
 
 const AppHeaderDropdown = () => {
-  const { keygenUser, logout } = useUser();
+  const { billUser, logout } = useUser();
   const [profilePicturePath, setProfilePicturePath] = useState(null);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        if (keygenUser) {
-          const userData = await fetchUserData(keygenUser.user_ID);
+        if (billUser) {
+          const userData = await fetchUserData(billUser.user_ID);
           const relativePath = userData.profilePicturePath;
           const baseURL = "https://localhost:7247/";
 
@@ -35,7 +35,7 @@ const AppHeaderDropdown = () => {
     };
 
     fetchData();
-  }, [keygenUser, setProfilePicturePath]);
+  }, [billUser, setProfilePicturePath]);
 
   const handleLogout = () => {
     logout();
@@ -52,7 +52,7 @@ const AppHeaderDropdown = () => {
         <CAvatar src={DefaultAvatar} size="md" />
       </CDropdownToggle>
       <CDropdownMenu className="pt-0" placement="bottom-end">
-        <CDropdownItem as={Link} to={`/users/view-user/${keygenUser.user_ID}`}>
+        <CDropdownItem as={Link} to={`/users/view-user/${billUser.user_ID}`}>
           <i className="icon-user me-2"></i>
           Profile
         </CDropdownItem>

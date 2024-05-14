@@ -12,97 +12,97 @@ import {
 import Select from "react-select";
 import { useParams } from "react-router-dom";
 
-const currentYear = new Date().getFullYear();
-const Sessionyears = [];
-
-for (let i = -5; i < 10; i++) {
-  const startYear = currentYear + i;
-  const endYear = startYear + 1;
-  const sessionYear = `${startYear.toString()}-${endYear.toString().slice(-2)}`;
-  Sessionyears.push({
-    Sessionyear_id: i + 6, // Adjusted to start from 1
-    Sessionyear_Name: sessionYear,
-  });
-}
-
 const AddMasterCharges = () => {
   const [chargeTypes, setChargeTypes] = useState([]);
   const [selectedOption, setSelectedOption] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [submittedData, setSubmittedData] = useState([]);
-  const [showModal, setShowModal] = useState(false);
-  const [newChargeTypeName, setNewChargeTypeName] = useState("");
   const { groupId } = useParams();
   const [showSaveAlert, setShowSaveAlert] = useState(false);
-  // const [rateQuantity, setRateQuantity] = useState(""); // Step 1
-
-  const fetchChargeTypes = async () => {
-    try {
-      const response = await fetch("https://localhost:7247/api/ChargeType");
-      if (response.ok) {
-        const data = await response.json();
-        setChargeTypes(data);
-      } else {
-        throw new Error("Failed to fetch charge types");
-      }
-    } catch (error) {
-      console.error("Error fetching charge types:", error);
-    }
-  };
+  const [sessions, setSessions] = useState([]);
+  const [autofilledData, setAutofilledData] = useState([]);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newChargeName, setNewChargeName] = useState("");
 
   useEffect(() => {
-    const fetchGroupSessions = async () => {
+    const fetchChargeTypes = async () => {
       try {
-        const response = await fetch(
-          `https://localhost:7247/api/ChargeDetails/SessionsInGroup/${groupId}`
-        );
+        const response = await fetch("https://localhost:7247/api/ChargeType");
         if (response.ok) {
           const data = await response.json();
-          // Filter out the years that are already in groupSessions
-          const updatedSessionYears = Sessionyears.filter(
-            (year) => !data.groupSessions.includes(year.Sessionyear_Name)
-          );
-          setSessionYears(updatedSessionYears);
+          // Add default show in main bill property to charge types
+          const chargeTypesWithShowInMainBill = data.map(chargeType => ({ ...chargeType, showInMainBill: 1 }));
+          setChargeTypes(chargeTypesWithShowInMainBill);
         } else {
-          throw new Error("Failed to fetch group sessions");
+          throw new Error("Failed to fetch charge types");
         }
       } catch (error) {
-        console.error("Error fetching group sessions:", error);
+        console.error("Error fetching charge types:", error);
+      }
+    };
+
+    const fetchSessions = async () => {
+      try {
+        const response = await fetch("https://localhost:7247/api/Session");
+        if (response.ok) {
+          const data = await response.json();
+          setSessions(data);
+        } else {
+          throw new Error("Failed to fetch sessions");
+        }
+      } catch (error) {
+        console.error("Error fetching sessions:", error);
       }
     };
 
     fetchChargeTypes();
-    fetchGroupSessions();
-  }, [groupId]); // Include groupId as a dependency
+    fetchSessions();
+  }, []);
 
-  const setSessionYears = (updatedSessionYears) => {
-    Sessionyears.splice(0, Sessionyears.length, ...updatedSessionYears);
-  };
+  useEffect(() => {
+    const fetchChargeDetails = async () => {
+      try {
+        const response = await fetch(`https://localhost:7247/api/ChargeDetails/${groupId}/${selectedOption.value}`);
+        if (response.ok) {
+          const data = await response.json();
+          setAutofilledData(data);
+        } else {
+          throw new Error("Failed to fetch charge details");
+        }
+      } catch (error) {
+        console.error("Error fetching charge details:", error);
+      }
+    };
 
-  const handleSelectChange = (selectedOption) => {
-    setSelectedOption(selectedOption ? selectedOption : "");
-  };
-
-  const handleSearchChange = (selectedOption) => {
-    setSearchTerm(selectedOption ? selectedOption.value : "");
-  };
+    if (selectedOption) {
+      fetchChargeDetails();
+    }
+  }, [groupId, selectedOption]);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+  
+    // Check if session is selected
+    if (!selectedOption) {
+      setErrorMessage("Session is required.");
+      return;
+    }
+  
     const matchedChargeType = chargeTypes.find(
       (chargeType) =>
         chargeType.charge_Name.toLowerCase() === searchTerm.toLowerCase()
     );
-
+  
     if (matchedChargeType) {
-      // Check if the charge type is already present in submittedData
-      const isDuplicate = submittedData.some(
+      const isInSubmittedData = submittedData.some(
         (data) => data.charge_Name === matchedChargeType.charge_Name
       );
-
-      if (!isDuplicate) {
-        console.log("Selected option:", matchedChargeType);
+      const isInAutofilledData = autofilledData.some(
+        (data) => data.chargeTypeName === matchedChargeType.charge_Name
+      );
+  
+      if (!isInSubmittedData && !isInAutofilledData) {
         setErrorMessage("");
         setSubmittedData([
           ...submittedData,
@@ -111,7 +111,7 @@ const AddMasterCharges = () => {
             rate_Booklet: "",
             rate_Paper: "",
             rate_Quantity: "",
-          }, // Step 1
+          },
         ]);
       } else {
         setErrorMessage("Charge type already exists in the table.");
@@ -123,8 +123,14 @@ const AddMasterCharges = () => {
     }
     setSearchTerm("");
   };
+  
 
   const saveTableData = async () => {
+    if (!selectedOption) {
+      setErrorMessage("Session is required.");
+      return;
+    }
+
     try {
       const response = await fetch("https://localhost:7247/api/ChargeDetails", {
         method: "POST",
@@ -133,22 +139,22 @@ const AddMasterCharges = () => {
         },
         body: JSON.stringify({
           groupId: groupId,
-          session: selectedOption ? selectedOption.value : "",
+          session_Id: selectedOption.value,
           chargeDetails: submittedData.map((chargeType) => ({
             chargeTypeId: chargeType.charge_Id,
             ratePaper: chargeType.rate_Paper,
             rateBooklet: chargeType.rate_Booklet,
-            rateQuantity: chargeType.rate_Quantity, // Step 1
+            rateQuantity: chargeType.rate_Quantity,
+            showInMainBill: chargeType.showInMainBill ? 1 : 0,
           })),
         }),
       });
       if (response.ok) {
         console.log("Table data saved successfully");
-        // Show the save alert
         setShowSaveAlert(true);
-        // Hide the alert after 3 seconds
         setTimeout(() => {
           setShowSaveAlert(false);
+          window.location.reload();
         }, 3000);
       } else {
         throw new Error("Failed to save table data");
@@ -158,35 +164,15 @@ const AddMasterCharges = () => {
     }
   };
 
-  const handleAddChargeType = async (e) => {
-    e.preventDefault();
-    try {
-      const response = await fetch("https://localhost:7247/api/ChargeType", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ charge_Name: newChargeTypeName }),
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setChargeTypes([
-          ...chargeTypes,
-          { charge_Id: data.charge_Id, charge_Name: data.charge_Name },
-        ]);
-        setShowModal(false);
-        setNewChargeTypeName("");
-      } else {
-        console.error("Failed to add charge type:", response.statusText);
-      }
-    } catch (error) {
-      console.error("Error adding charge type:", error.message);
-    }
-  };
-
   const handleRateChange = (index, field, value) => {
     const updatedSubmittedData = [...submittedData];
     updatedSubmittedData[index][field] = value;
+    setSubmittedData(updatedSubmittedData);
+  };
+
+  const handleShowInMainBillChange = (index, value) => {
+    const updatedSubmittedData = [...submittedData];
+    updatedSubmittedData[index].showInMainBill = value === "1" ? 1 : 0;
     setSubmittedData(updatedSubmittedData);
   };
 
@@ -194,6 +180,48 @@ const AddMasterCharges = () => {
     const updatedData = [...submittedData];
     updatedData.splice(index, 1);
     setSubmittedData(updatedData);
+  };
+
+  const removeItemfromdb = async (chargeDetailId) => {
+    try {
+      const response = await fetch(`https://localhost:7247/api/ChargeDetails/${chargeDetailId}`, {
+        method: "DELETE",
+      });
+      if (response.ok) {
+        console.log("Item removed successfully from the database");
+        // You may want to refresh the autofilled data after removing the item
+        const updatedAutofilledData = autofilledData.filter(chargeType => chargeType.chargeDetailId !== chargeDetailId);
+        setAutofilledData(updatedAutofilledData);
+      } else {
+        throw new Error("Failed to remove item from the database");
+      }
+    } catch (error) {
+      console.error("Error removing item from the database:", error);
+    }
+  };
+  
+
+  const handleAddCharge = async () => {
+    try {
+      const response = await fetch("https://localhost:7247/api/ChargeType", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          charge_Name: newChargeName,
+          // Add other properties of the new charge here
+        }),
+      });
+      if (response.ok) {
+        setChargeTypes([...chargeTypes, { charge_Name: newChargeName }]);
+        setShowAddModal(false);
+      } else {
+        throw new Error("Failed to add new charge");
+      }
+    } catch (error) {
+      console.error("Error adding new charge:", error);
+    }
   };
 
   return (
@@ -204,30 +232,35 @@ const AddMasterCharges = () => {
         <Row>
           <Col md={4}>
             <Form.Group className="mb-3">
-              <Form.Label>Select Session Year</Form.Label>
+              <Form.Label>
+                Select Session Year <span className="text-danger">*</span>
+              </Form.Label>
               <Select
                 value={selectedOption}
-                onChange={handleSelectChange}
-                options={Sessionyears.map((Sessionyear) => ({
-                  value: Sessionyear.Sessionyear_Name,
-                  label: Sessionyear.Sessionyear_Name,
+                onChange={setSelectedOption}
+                options={sessions.map((session) => ({
+                  value: session.session_id,
+                  label: session.session_Name,
                 }))}
                 placeholder="Select Session"
                 isClearable
+                isRequired // Add this prop
               />
             </Form.Group>
           </Col>
           <Col md={5}>
-            <Form.Label>Select Charge Types</Form.Label>
+            <Form.Label>Select Charge Types<span className="text-danger">*</span></Form.Label>
             <InputGroup className="mb-3">
               <Select
                 styles={{
                   container: (provided) => ({
                     ...provided,
-                    flex: "1", // Occupy remaining space
+                    flex: "1",
                   }),
                 }}
-                onChange={handleSearchChange}
+                onChange={(selectedOption) =>
+                  setSearchTerm(selectedOption ? selectedOption.value : "")
+                }
                 options={chargeTypes.map((chargeType) => ({
                   value: chargeType.charge_Name,
                   label: chargeType.charge_Name,
@@ -241,16 +274,53 @@ const AddMasterCharges = () => {
               </Button>
             </InputGroup>
             {errorMessage && (
-              <div className="alert alert-danger" role="alert">
+              <div
+                className="alert alert-danger alert-dismissible"
+                role="alert"
+              >
                 {errorMessage}
+                <button
+                  type="button"
+                  className="btn-close"
+                  onClick={() => setErrorMessage("")}
+                  aria-label="Close"
+                ></button>
               </div>
             )}
           </Col>
-          <Col md={3}>
-            <Form.Label>Add New Charge</Form.Label>
-            <Button onClick={() => setShowModal(true)}>Add New Charge</Button>
-          </Col>
         </Row>
+        <Row className="my-3">
+        <Col md={12} className="text-end">
+          <Button variant="primary" onClick={() => setShowAddModal(true)}>
+            Add New Charge
+          </Button>
+        </Col>
+      </Row>
+
+      
+      <Modal show={showAddModal} onHide={() => setShowAddModal(false)}>
+        <Modal.Header closeButton>
+          <Modal.Title>Add New Charge</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Form.Group>
+            <Form.Label>Charge Name</Form.Label>
+            <Form.Control
+              type="text"
+              value={newChargeName}
+              onChange={(e) => setNewChargeName(e.target.value)}
+            />
+          </Form.Group>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowAddModal(false)}>
+            Cancel
+          </Button>
+          <Button variant="primary" onClick={handleAddCharge}>
+            Add Charge
+          </Button>
+        </Modal.Footer>
+      </Modal>
       </Form>
       <div>
         <Table striped bordered hover>
@@ -264,16 +334,42 @@ const AddMasterCharges = () => {
               </th>
               <th colSpan="3">Rates</th>
               <th rowSpan="2" className="align-middle">
+                Show In
+              </th>
+              <th rowSpan="2" className="align-middle">
                 Actions
               </th>
             </tr>
             <tr className="text-center">
-              <th>Rate_Quantity</th>
-              <th>Rate_Booklet</th>
-              <th>Rate_Paper</th>
+              <th>Rate Quantity</th>
+              <th>Booklet Rate</th>
+              <th>Paper Rate</th>
             </tr>
           </thead>
           <tbody>
+            {autofilledData.map((chargeType, index) => (
+              <tr key={index}>
+                <td>{index + 1}</td>
+                <td>{chargeType.chargeTypeName}</td>
+                <td>
+                  <span>{chargeType.rateQuantity}</span>
+                </td>
+                <td>
+                  <span>{chargeType.rateBooklet}</span>
+                </td>
+                <td>
+                  <span>{chargeType.ratePaper}</span>
+                </td>
+                <td>
+                  <span>{chargeType.showInMainBill ? "Main Bill" : "Cover Page"}</span>
+                </td>
+                <td className="text-center">
+                  <Button  variant="danger" onClick={() => removeItemfromdb(chargeType.chargeDetailId)}>
+                    Remove
+                  </Button>
+                </td>
+              </tr>
+            ))}
             {submittedData.map((chargeType, index) => (
               <tr key={index}>
                 <td>{index + 1}</td>
@@ -304,6 +400,17 @@ const AddMasterCharges = () => {
                       handleRateChange(index, "rate_Paper", e.target.value)
                     }
                   />
+                </td>
+                <td>
+                  <Form.Select
+                    value={chargeType.showInMainBill ? "1" : "0"}
+                    onChange={(e) =>
+                      handleShowInMainBillChange(index, e.target.value)
+                    }
+                  >
+                    <option value="1">Main Bill</option>
+                    <option value="0">Cover Page</option>
+                  </Form.Select>
                 </td>
                 <td className="text-center">
                   <Button variant="danger" onClick={() => removeItem(index)}>
@@ -344,36 +451,40 @@ const AddMasterCharges = () => {
           </Toast.Body>
         </Toast>
       )}
-      <Modal show={showModal} onHide={() => setShowModal(false)}>
+
+      
+      {/* <Row className="my-3">
+        <Col md={12} className="text-end">
+          <Button variant="primary" onClick={() => setShowAddModal(true)}>
+            Add New Charge
+          </Button>
+        </Col>
+      </Row>
+
+      
+      <Modal show={showAddModal} onHide={() => setShowAddModal(false)}>
         <Modal.Header closeButton>
-          <Modal.Title>Add New Charge Type</Modal.Title>
+          <Modal.Title>Add New Charge</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <Form onSubmit={handleAddChargeType}>
-            <Form.Group controlId="chargeTypeName">
-              <Form.Label>Name:</Form.Label>
-              <Form.Control
-                type="text"
-                value={newChargeTypeName}
-                onChange={(e) => setNewChargeTypeName(e.target.value)}
-              />
-            </Form.Group>
-            <div className="text-end mt-3">
-              <Button variant="secondary" onClick={() => setShowModal(false)}>
-                Cancel
-              </Button>
-              <Button
-                className="px-4 mx-2"
-                variant="primary"
-                type="submit"
-                style={{ marginRight: "10px" }}
-              >
-                Add
-              </Button>
-            </div>
-          </Form>
+          <Form.Group>
+            <Form.Label>Charge Name</Form.Label>
+            <Form.Control
+              type="text"
+              value={newChargeName}
+              onChange={(e) => setNewChargeName(e.target.value)}
+            />
+          </Form.Group>
         </Modal.Body>
-      </Modal>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowAddModal(false)}>
+            Cancel
+          </Button>
+          <Button variant="primary" onClick={handleAddCharge}>
+            Add Charge
+          </Button>
+        </Modal.Footer>
+      </Modal> */}
     </div>
   );
 };

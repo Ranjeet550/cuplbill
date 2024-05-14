@@ -16,9 +16,9 @@ import {
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
 import {
-  cilSettings,
+  
   cilContrast,
-  cilEnvelopeOpen,
+
   cilMenu,
   cilMoon,
   cilSun,
@@ -102,16 +102,8 @@ const AppHeader = () => {
           </CNavItem>
         </CHeaderNav>
         <CHeaderNav className="ms-auto">
-          <CNavItem>
-            <CNavLink >
-              <CIcon icon={cilSettings} size="lg" />
-            </CNavLink>
-          </CNavItem>
-          <CNavItem>
-            <CNavLink>
-              <CIcon icon={cilEnvelopeOpen} size="lg" />
-            </CNavLink>
-          </CNavItem>
+          
+          
         </CHeaderNav>
         <CHeaderNav>
           <li className="nav-item py-1">

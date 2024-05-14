@@ -3,7 +3,7 @@ import GroupTable from "./GroupTable";
 import { Container, Button, Spinner } from "react-bootstrap";
 import AddGroupModal from "./AddGroupModal";
 
-const apiUrl = process.env.REACT_APP_API_GROUPS;
+const apiUrl = process.env.REACT_APP_API_GROUP;
 
 const Groups = () => {
   const [groups, setGroups] = useState([]);
@@ -18,6 +18,7 @@ const Groups = () => {
         if (response.ok) {
           const data = await response.json();
           setGroups(data);
+          console.log(data)
           setLoading(false);
         } else {
           throw new Error('Failed to fetch group data');
@@ -30,7 +31,7 @@ const Groups = () => {
 
     fetchGroups(); // Call the fetchGroups function
 
-  }, [groups]); // Re-run the effect whenever the groups state changes
+  }, []); // Re-run the effect whenever the groups state changes
 
   const handleAddGroup = (newGroupData) => {
     // Update the groups state with the new group data

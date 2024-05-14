@@ -10,7 +10,7 @@ const UpdateUser = React.lazy(() => import('./views/Users/UpdateUser'))
 //Permissions
 const Permission = React.lazy(()=>import('./views/Users/UserPermissons'))
 
-//Gropus
+//Groups
 // const AddGroup = React.lazy(()=>import('./views/Groups/AddGroup'))
 const Groups = React.lazy(()=>import('./views/Groups/Groups'))
 const ViewGroup = React.lazy(()=>import('./views/Groups/ViewGroup'))
@@ -22,7 +22,8 @@ const ChargeDetails = React.lazy(()=>import('./views/Groups/ChargeDetails'))
 //bills
 const AddBill = React.lazy(()=>import('./views/Bills/AddBill'))
 const AllBills = React.lazy(()=>import('./views/Bills/AllBills'))
-// const ChargeTypes = React.lazy(()=>import('./views/Bills/BillMaster/ChargeTypePage'))
+const GenerateBill = React.lazy(()=>import('./views/Bills/GenerateBill'))
+const Sessions = React.lazy(()=>import('./views/Groups/Master/Sessions'))
 
 
 
@@ -43,6 +44,10 @@ const routes = [
   { path: '/Bills', name: 'All Bills', element: AllBills},
   { path: '/Bills/AddBill', name: 'Add Bill', element: AddBill},
   { path: '/Bills/Master/ChargeTypes', name: 'Charge Types', element: ChargeTypes},
+  { path: '/Bills/GenerateBill', name: 'GenerateBill', element: GenerateBill},
+
+  { path: '/Master/Sessions', name: 'Sessions', element: Sessions},
+  
 
   // Groups 
   // { path: '/Groups/AddGroup', name: 'Add Group', element: AddGroup},
@@ -52,6 +57,7 @@ const routes = [
   { path: '/Groups/ChargeTypes', name: 'Charge Types', element: ChargeTypes},
   { path: '/Groups/AddMasterCharges/:groupId', name: 'Add MAster', element: AddMasterCharges},
   { path: '/Groups/ChargeDetails/:groupId/:session', name: 'ChargeDetails', element: ChargeDetails},
+
 
 
 ]

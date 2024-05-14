@@ -2,11 +2,15 @@ import axios from "axios";
 import React, { useState, useEffect } from "react";
 import { Form, Button, Row, Col, Container, Alert } from "react-bootstrap";
 import { useParams, useNavigate } from "react-router-dom";
+import { useSecurity } from "src/context/Security";
+
 
 const apiUserById = process.env.REACT_APP_API_USER_BY_ID;
 
 const UpdateUser = () => {
   const { userId } = useParams();
+  const {decrypt} = useSecurity();
+  const userID = decrypt(userId);
   const navigate = useNavigate();
 
   const [userData, setUserData] = useState({
@@ -35,7 +39,7 @@ const UpdateUser = () => {
 
   useEffect(() => {
     axios
-      .get(`${apiUserById}/${userId}`)
+      .get(`${apiUserById}/${userID}`)
       .then((res) => {
         const user = res.data;
         setUserData(res.data)
@@ -51,7 +55,7 @@ const UpdateUser = () => {
       })
       .catch((err) => setApiError(err.message || "An error occurred"))
       .finally(() => setLoading(false));
-  }, [userId]);
+  }, [userID]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -66,7 +70,7 @@ const UpdateUser = () => {
     setUpdateSuccess(false);
 
     try {
-      await axios.put(`${apiUserById}/${userId}`, userData);
+      await axios.put(`${apiUserById}/${userID}`, userData);
       setUpdateSuccess(true);
       setUpdateSuccess(true);
       setApiError('');

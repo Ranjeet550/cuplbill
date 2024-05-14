@@ -64,7 +64,7 @@ const ViewGroup = () => {
         <>
           {group ? (
             <>
-              <Card>
+              <Card style={{ backgroundColor: 'MintCream' /* Set background color */ }}>
                 <CardBody>
                   <Row>
                     <Col>
@@ -90,7 +90,7 @@ const ViewGroup = () => {
               <Row className="row-cols-1 row-cols-md-2 row-cols-lg-4 my-3">
                 <Col>
                   <Link to={`/Groups/AddMasterCharges/${groupId}`}>
-                    <Card>
+                    <Card  style={{ backgroundColor: 'MintCream' /* Set background color */ }}>
                       <CardBody className="text-center p-5">
                         <FontAwesomeIcon icon={faPlus} className="fs-2" />
                       </CardBody>
@@ -100,11 +100,11 @@ const ViewGroup = () => {
                 {/* Display group sessions */}
                 {groupSessions.map((session, index) => (
                   <Col key={index}>
-                    <Link to={`/Groups/ChargeDetails/${groupId}/${session}`}>
-                      <Card>
+                    <Link to={`/Groups/ChargeDetails/${groupId}/${session.sessionId}`}>
+                      <Card style={{ backgroundColor: 'MediumSpringGreen' /* Set background color */ }}>
                         <CardBody className="text-center p-4">
-                          <h3 className="mb-3">Charge Table</h3>
-                          <h4>{session}</h4>
+                          <h3 className="mb-3" style={{ color: 'smokewhite' /* Set text color */ }}>Charge Table</h3>
+                          <h4 style={{ color: 'smokewhite' /* Set text color */ }}>{session.sessionName}</h4>
                         </CardBody>
                       </Card>
                     </Link>

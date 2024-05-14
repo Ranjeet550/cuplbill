@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Modal, Button, Form } from 'react-bootstrap';
 import PropTypes from 'prop-types';
-const apiUrl = process.env.REACT_APP_API_GROUPS; 
+const apiUrl = process.env.REACT_APP_API_GROUP; 
 
 const AddGroupModal = ({ show, handleClose, handleAdd }) => {
   const [groupName, setGroupName] = useState('');
@@ -55,16 +55,16 @@ const AddGroupModal = ({ show, handleClose, handleAdd }) => {
       <Modal.Body>
         <Form onSubmit={handleSubmit}>
           <Form.Group controlId="formGroupName">
-            <Form.Label>Name</Form.Label>
+            <Form.Label> Name <span className="text-danger">*</span> </Form.Label>
             <Form.Control type="text" placeholder="Enter group name" value={groupName} onChange={(e) => setGroupName(e.target.value)} required />
           </Form.Group>
           <Form.Group controlId="formGroupEmail">
             <Form.Label>Email</Form.Label>
-            <Form.Control type="email" placeholder="Enter group email" value={groupEmail} onChange={(e) => setGroupEmail(e.target.value)} required />
+            <Form.Control type="email" placeholder="Enter group email" value={groupEmail} onChange={(e) => setGroupEmail(e.target.value)}  />
           </Form.Group>
           <Form.Group controlId="formGroupAddress">
             <Form.Label>Address</Form.Label>
-            <Form.Control type="text" placeholder="Enter group address" value={groupAddress} onChange={(e) => setGroupAddress(e.target.value)} required />
+            <Form.Control type="text" placeholder="Enter group address" value={groupAddress} onChange={(e) => setGroupAddress(e.target.value)}  />
           </Form.Group>
           <div className='text-center'>
           <Button variant="primary" type="submit" className=' mt-3 w-50'>

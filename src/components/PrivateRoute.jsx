@@ -5,10 +5,10 @@ import PropTypes from 'prop-types'; // Import PropTypes
 import { useUser } from '../context/UserContext';
 
 const PrivateRoute = ({ element }) => {
-  const { keygenUser } = useUser();
+  const { billUser } = useUser();
 
   // Check if the user is authenticated, otherwise redirect to the login page
-  if (!keygenUser) {
+  if (!billUser) {
     return <Navigate to="/login" />;
   }
 

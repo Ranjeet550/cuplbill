@@ -1,38 +1,39 @@
 import React, { createContext, useContext, useState } from 'react';
 import PropTypes from 'prop-types'; // Import PropTypes
 
-// Helper function to retrieve keygenUser from local storage
-const getKeygenUserFromLocalStorage = () => {
-  const storedKeygenUser = localStorage.getItem('keygenUser');
-  return storedKeygenUser ? JSON.parse(storedKeygenUser) : null;
+
+// Helper function to retrieve billUser from local storage
+const getbillUserFromLocalStorage = () => {
+  const storedbillUser = localStorage.getItem('billUser');
+  return storedbillUser ? JSON.parse(storedbillUser) : null;
 };
 
 const UserContext = createContext();
 
 export const UserProvider = ({ children }) => {
-  // Initialize keygenUser state using the helper function
-  const [keygenUser, setKeygenUser] = useState(getKeygenUserFromLocalStorage());
+  // Initialize billUser state using the helper function
+  const [billUser, setbillUser] = useState(getbillUserFromLocalStorage());
 
-  // Function to log in a user and update keygenUser state
+  // Function to log in a user and update billUser state
   const login = (userData) => {
-    setKeygenUser(userData);
-    localStorage.setItem('keygenUser', JSON.stringify(userData));
+    setbillUser(userData);
+    localStorage.setItem('billUser', JSON.stringify(userData));
   };
 
-  // Function to log out a user and clear keygenUser state
+  // Function to log out a user and clear billUser state
   const logout = () => {
-    setKeygenUser(null);
-    localStorage.removeItem('keygenUser');
+    setbillUser(null);
+    localStorage.removeItem('billUser');
   };
 
   // Function to check if a user is logged in
   const isLoggedIn = () => {
-    return !!keygenUser; // Return true if keygenUser is not null or undefined
+    return !!billUser; // Return true if billUser is not null or undefined
   };
 
-  // Provide keygenUser, login, logout, and isLoggedIn functions to the context
+  // Provide billUser, login, logout, and isLoggedIn functions to the context
   return (
-    <UserContext.Provider value={{ keygenUser, login, logout, isLoggedIn }}>
+    <UserContext.Provider value={{ billUser, login, logout, isLoggedIn }}>
       {children}
     </UserContext.Provider>
   );
@@ -44,7 +45,7 @@ UserProvider.propTypes = {
 };
 
 export const useUser = () => {
-  // Use the context to access keygenUser, login, logout, and isLoggedIn functions
+  // Use the context to access billUser, login, logout, and isLoggedIn functions
   const context = useContext(UserContext);
   if (!context) {
     throw new Error('useUser must be used within a UserProvider');

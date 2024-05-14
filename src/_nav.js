@@ -9,6 +9,7 @@ import {
   // cilNewspaper,
 } from '@coreui/icons'
 import { CNavGroup, CNavItem, CNavTitle } from '@coreui/react'
+import { faHamburger } from '@fortawesome/free-solid-svg-icons'
 
 const _nav = [
   {
@@ -72,7 +73,7 @@ const _nav = [
     items: [
       {
         component: CNavItem,
-        name: 'Add Bill',
+        name: 'Create Bill',
         to: '/Bills/AddBill',
         icon: <CIcon icon={cilPlus} customClassName="nav-icon" />,
       },
@@ -82,12 +83,37 @@ const _nav = [
         to: '/Bills',
         icon: <CIcon icon={cilHamburgerMenu} customClassName="nav-icon" />,
       },
+      // {
+      //   component: CNavItem,
+      //   name: 'Bill Master',
+      //   to: '/Bills/Master/ChargeTypes',
+      //   icon: <CIcon icon={cilHamburgerMenu} customClassName="nav-icon" />,
+      // },
+    ],
+  },
+  {
+    component: CNavGroup,
+    name: 'Master',
+    icon: <CIcon icon={cilHamburgerMenu} customClassName="nav-icon" />,
+    items: [
       {
         component: CNavItem,
-        name: 'Bill Master',
-        to: '/Bills/Master/ChargeTypes',
-        icon: <CIcon icon={cilHamburgerMenu} customClassName="nav-icon" />,
+        name: 'Manage Sessions',
+        to: '/Master/Sessions',
+        icon: <CIcon icon={cilPlus} customClassName="nav-icon" />,
       },
+      // {
+      //   component: CNavItem,
+      //   name: 'All Bills',
+      //   to: '/Bills',
+      //   icon: <CIcon icon={cilHamburgerMenu} customClassName="nav-icon" />,
+      // },
+      // {
+      //   component: CNavItem,
+      //   name: 'Bill Master',
+      //   to: '/Bills/Master/ChargeTypes',
+      //   icon: <CIcon icon={cilHamburgerMenu} customClassName="nav-icon" />,
+      // },
     ],
   },
   

@@ -3,7 +3,7 @@ import PropTypes from 'prop-types';
 import { Table } from 'react-bootstrap';
 import { CSVLink } from 'react-csv';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faEye, faPenToSquare, faTrash } from '@fortawesome/free-solid-svg-icons';
+import { faEye} from '@fortawesome/free-solid-svg-icons';
 
 import $ from 'jquery';
 import { Link } from 'react-router-dom';
@@ -46,8 +46,7 @@ const GroupTable = ({ groups }) => {
                     <Link to={`view-group/${group.groupId}`}>
                         <FontAwesomeIcon icon={faEye} className="text-success" />
                     </Link>
-                  <FontAwesomeIcon icon={faPenToSquare} className="text-primary" />
-                  <FontAwesomeIcon icon={faTrash} className="text-danger" />
+                 
                 </div>
               </td>
             </tr>
